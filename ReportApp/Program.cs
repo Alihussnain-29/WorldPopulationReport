@@ -1,61 +1,148 @@
 using System;
-using System.Threading;
 using MySql.Data.MySqlClient;
 
 class Program
 {
+    static MySqlConnection connection;
+
     static void Main(string[] args)
     {
-        string connectionString =
-            "Server=mysql_db;" +
-            "Port=3306;" +
-            "Database=world;" +
-            "Uid=root;" +
-            "Pwd=root;";
+        string connString = "server=localhost;user=root;password=root;database=world";
 
-        int retries = 10;
+        connection = new MySqlConnection(connString);
 
-        while (retries > 0)
+        try
         {
-            try
+            connection.Open();
+            Console.WriteLine("Connected to MySQL successfully.\n");
+
+            bool running = true;
+
+            while (running)
             {
-                using (var connection = new MySqlConnection(connectionString))
+                Console.WriteLine("===== World Population Reporting System =====");
+                Console.WriteLine("1. View Top 10 Countries by Population");
+                Console.WriteLine("2. View Top 10 Cities by Population");
+                Console.WriteLine("3. View Top 10 Capital Cities");
+                Console.WriteLine("4. View Top N Countries");
+                Console.WriteLine("5. Exit");
+                Console.Write("Select an option: ");
+
+                string choice = Console.ReadLine();
+                Console.WriteLine();
+
+                switch (choice)
                 {
-                    Console.WriteLine("Connecting to MySQL...");
-                    connection.Open();
+                    case "1":
+                        ShowTopCountries();
+                        break;
 
-                    Console.WriteLine("Connected to MySQL.\n");
+                    case "2":
+                        ShowTopCities();
+                        break;
 
-                    string sql = @"SELECT Name, Population
-                                   FROM country
-                                   ORDER BY Population DESC
-                                   LIMIT 10;";
+                    case "3":
+                        ShowTopCapitals();
+                        break;
 
-                    using (var command = new MySqlCommand(sql, connection))
-                    using (var reader = command.ExecuteReader())
-                    {
-                        Console.WriteLine("Top 10 Most Populated Countries:\n");
+                    case "4":
+                        ShowTopNCountries();
+                        break;
 
-                        while (reader.Read())
-                        {
-                            string name = reader.GetString("Name");
-                            long population = reader.GetInt64("Population");
+                    case "5":
+                        running = false;
+                        break;
 
-                            Console.WriteLine($"{name} - {population:N0}");
-                        }
-                    }
-
-                    return; // success, exit program
+                    default:
+                        Console.WriteLine("Invalid option.\n");
+                        break;
                 }
             }
-            catch
-            {
-                retries--;
-                Console.WriteLine("MySQL not ready yet. Retrying in 5 seconds...");
-                Thread.Sleep(5000);
-            }
+
+            connection.Close();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error connecting to database: " + ex.Message);
+        }
+    }
+
+    static void ShowTopCountries()
+    {
+        string query = "SELECT Name, Population FROM country ORDER BY Population DESC LIMIT 10";
+
+        MySqlCommand cmd = new MySqlCommand(query, connection);
+        MySqlDataReader reader = cmd.ExecuteReader();
+
+        Console.WriteLine("Top 10 Countries by Population:\n");
+
+        while (reader.Read())
+        {
+            Console.WriteLine(reader["Name"] + " - " + reader["Population"]);
         }
 
-        Console.WriteLine("Failed to connect to MySQL after multiple attempts.");
+        Console.WriteLine();
+        reader.Close();
+    }
+
+    static void ShowTopCities()
+    {
+        string query = "SELECT Name, Population FROM city ORDER BY Population DESC LIMIT 10";
+
+        MySqlCommand cmd = new MySqlCommand(query, connection);
+        MySqlDataReader reader = cmd.ExecuteReader();
+
+        Console.WriteLine("Top 10 Cities by Population:\n");
+
+        while (reader.Read())
+        {
+            Console.WriteLine(reader["Name"] + " - " + reader["Population"]);
+        }
+
+        Console.WriteLine();
+        reader.Close();
+    }
+
+    static void ShowTopCapitals()
+    {
+        string query = @"SELECT city.Name, city.Population
+                         FROM city
+                         JOIN country ON city.ID = country.Capital
+                         ORDER BY city.Population DESC
+                         LIMIT 10";
+
+        MySqlCommand cmd = new MySqlCommand(query, connection);
+        MySqlDataReader reader = cmd.ExecuteReader();
+
+        Console.WriteLine("Top 10 Capital Cities:\n");
+
+        while (reader.Read())
+        {
+            Console.WriteLine(reader["Name"] + " - " + reader["Population"]);
+        }
+
+        Console.WriteLine();
+        reader.Close();
+    }
+
+    static void ShowTopNCountries()
+    {
+        Console.Write("Enter number (N): ");
+        int n = Convert.ToInt32(Console.ReadLine());
+
+        string query = $"SELECT Name, Population FROM country ORDER BY Population DESC LIMIT {n}";
+
+        MySqlCommand cmd = new MySqlCommand(query, connection);
+        MySqlDataReader reader = cmd.ExecuteReader();
+
+        Console.WriteLine($"\nTop {n} Countries by Population:\n");
+
+        while (reader.Read())
+        {
+            Console.WriteLine(reader["Name"] + " - " + reader["Population"]);
+        }
+
+        Console.WriteLine();
+        reader.Close();
     }
 }
